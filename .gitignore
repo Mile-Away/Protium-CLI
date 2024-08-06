@@ -13,4 +13,14 @@ db.sqlite3
 # Ignore all .pyc files
 *.pyc
 
+# Ignore private settings
+.env
 PyPI.txt
+
+# Ignore pypi build files
+dist/
+build/
+*.egg-info/
+setup.py
+pypibuild.sh
+
