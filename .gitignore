@@ -1,0 +1,16 @@
+media/
+library/
+
+**/*/__pycache__
+**/.DS_Store
+*/.env
+db.sqlite3
+.vscode/
+.hintrc
+*/uwsgi.ini
+*/static/
+
+# Ignore all .pyc files
+*.pyc
+
+PyPI.txt
