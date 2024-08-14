@@ -22,5 +22,6 @@ dist/
 build/
 *.egg-info/
 setup.py
+version.py
 pypibuild.sh
 
