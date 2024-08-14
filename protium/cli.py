@@ -5,7 +5,7 @@ import json
 import click
 from protium.api import ApiClient
 
-from version import __version__
+from ..version import __version__
 
 # 创建 ApiClient 实例
 api_client = ApiClient()
