@@ -24,4 +24,4 @@ build/
 setup.py
 version.py
 pypibuild.sh
-
+debug.py

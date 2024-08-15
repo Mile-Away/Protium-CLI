@@ -1,42 +1,50 @@
-# /cli.py
-
 import json
 
 import click
-from protium.api import ApiClient
+from tabulate import tabulate
 
-from ..version import __version__
-
-# 创建 ApiClient 实例
-api_client = ApiClient()
+from .api import ApiClient
+from .version import __version__
 
 
 @click.group(invoke_without_command=True)
+@click.option("-e", "--endpoint", default=None, help="Specify the API endpoint")
 @click.pass_context
-def cli(ctx):
+def cli(ctx, endpoint):
+    ctx.ensure_object(dict)
+    ctx.obj["ENDPOINT"] = endpoint
+
     if ctx.invoked_subcommand is None:
         click.echo(f"protium CLI version {__version__}")
         click.echo("Use one of the following commands:")
-        click.echo("  list    - 列出所有项目")
-        click.echo("  create  - 从 JSON 文件创建项目")
-        click.echo("  version - 显示版本号")
+        click.echo("  list    - List all projects")
+        click.echo("  create  - Create a project from a JSON file")
+        click.echo("  version - Display the version number")
         click.echo("\nUse 'ptm <command> --help' for more information on a command.")
 
 
 @click.command()
-def list():
-    """列出所有项目"""
-    response = api_client.list()
-    if response:
-        click.echo(json.dumps(response, indent=2))
+@click.pass_context
+def list(ctx):
+    """List all projects"""
+    endpoint = ctx.obj["ENDPOINT"]
+    api_client = ApiClient(api_url=endpoint) if endpoint else ApiClient()
+    df = api_client.list()
+    if df is not None:
+        # Convert DataFrame to list of lists and get columns
+        table = tabulate(df, headers="keys", tablefmt="fancy_grid", showindex=False)  # type: ignore
+        click.echo(table)
     else:
         click.echo("Failed to retrieve the list.")
 
 
 @click.command()
 @click.option("-f", "--file", type=click.Path(exists=True), help="JSON file to upload")
-def create(file):
-    """从 JSON 文件创建项目"""
+@click.pass_context
+def create(ctx, file):
+    """Create a project from a JSON file"""
+    endpoint = ctx.obj["ENDPOINT"]
+    api_client = ApiClient(api_url=endpoint) if endpoint else ApiClient()
     if file:
         try:
             with open(file, "r") as f:
@@ -53,7 +61,7 @@ def create(file):
 
 @click.command()
 def version():
-    """显示版本号"""
+    """Display the version number"""
     click.echo(f"protium version {__version__}")
 
 
