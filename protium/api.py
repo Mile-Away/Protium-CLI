@@ -1,7 +1,7 @@
 import getpass
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import requests
@@ -10,11 +10,17 @@ from dotenv import load_dotenv
 from pandas import DataFrame
 from tzlocal import get_localzone
 
+from .schemas import BaseWorkflowDataModel
+from .typed import WorkflowApiResProps
+
 # Initialize colorama
 init(autoreset=True)
 
 # 获取系统的本地时区
 local_timezone = get_localzone()
+
+# 设置显示选项
+pd.set_option('display.max_colwidth', 128)  # 防止 url 被截断
 
 
 class ApiClient:
@@ -49,41 +55,63 @@ class ApiClient:
         with open(dotenv_path, "a") as f:
             f.write(f"\nAPI_TOKEN={api_token}")
 
-    def list(self) -> DataFrame | None:
+    @classmethod
+    def _convert_response(cls, data: List[WorkflowApiResProps], local_timezone) -> DataFrame:
+        """
+        Convert a list of data into a pandas DataFrame, process the timestamps and remove 'uuid' field.
+
+        Args:
+            data (list): The list of data to be converted.
+            local_timezone: The local timezone to which timestamps should be converted.
+
+        Returns:
+            DataFrame: The processed pandas DataFrame.
+        """
+        # Process the data to hide uuid and add workflow_url
+        for item in data:
+            del item["uuid"]
+
+        dataframe = pd.DataFrame(data)
+
+        dataframe["created_at"] = pd.to_datetime(dataframe["created_at"])
+        dataframe["updated_at"] = pd.to_datetime(dataframe["updated_at"])
+        dataframe["created_at"] = (
+            dataframe["created_at"].dt.tz_convert(local_timezone).dt.strftime("%Y-%m-%d %H:%M:%S")
+        )
+        dataframe["updated_at"] = (
+            dataframe["updated_at"].dt.tz_convert(local_timezone).dt.strftime("%Y-%m-%d %H:%M:%S")
+        )
+
+        return dataframe
+
+    def list(self) -> DataFrame:
         try:
             response: requests.Response = requests.get(self.api_url, headers=self.headers)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            print(f"{Fore.RED}{Style.BRIGHT}Error: {e}")
-            return None
+            raise e
 
-        data = response.json()
-        if isinstance(data, list):
-            # Process the data to hide uuid and add workflow_url
-            for item in data:
-                del item["uuid"]
+        res = response.json()
 
-            dataframe = pd.DataFrame(data)
-            dataframe["created_at"] = pd.to_datetime(dataframe["created_at"])
-            dataframe["updated_at"] = pd.to_datetime(dataframe["updated_at"])
-            dataframe["created_at"] = (
-                dataframe["created_at"].dt.tz_convert(local_timezone).dt.strftime("%Y-%m-%d %H:%M:%S")
-            )
-            dataframe["updated_at"] = (
-                dataframe["updated_at"].dt.tz_convert(local_timezone).dt.strftime("%Y-%m-%d %H:%M:%S")
-            )
+        res_df = self._convert_response(res, local_timezone)
 
-            return dataframe
-        else:
-            print(f"{Fore.RED}{Style.BRIGHT}Error: Unexpected response format.")
-            return None
+        return res_df
 
-    def create(self, data: Dict[str, Any]) -> Dict[str, Any] | None:
+    def create(self, *, data: Dict[str, Any]) -> DataFrame:
+
+        # Ensure the input data is of the correct
+        input_params: BaseWorkflowDataModel = BaseWorkflowDataModel(**data)
+
         try:
-            response: requests.Response = requests.post(self.api_url, headers=self.headers, json=data)
+            response: requests.Response = requests.post(
+                self.api_url, headers=self.headers, json=input_params.model_dump()
+            )
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            print(f"{Fore.RED}{Style.BRIGHT}Error: {e}")
-            return None
+            raise e
 
-        return response.json()
+        res = response.json()
+
+        df = self._convert_response([res], local_timezone)
+
+        return df

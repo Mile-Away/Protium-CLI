@@ -1,6 +1,7 @@
 import json
 
 import click
+from pandas import DataFrame
 from tabulate import tabulate
 
 from .api import ApiClient
@@ -49,14 +50,17 @@ def create(ctx, file):
         try:
             with open(file, "r") as f:
                 data = json.load(f)
-            response = api_client.create(data)
-            click.echo(json.dumps(response, indent=2))
+
+            res_df: DataFrame = api_client.create(data=data)
+            if res_df is not None:
+                table = tabulate(res_df, headers="keys", tablefmt="fancy_grid", showindex=False)  # type: ignore
+            click.echo(table)
         except json.JSONDecodeError:
             click.echo("Invalid JSON file.")
         except Exception as e:
             click.echo(f"Error: {e}")
     else:
-        click.echo("No file provided. Use the -f option to specify a JSON file.")
+        click.echo("No file provided. Use the -f option to specify a JSON workflow.")
 
 
 @click.command()

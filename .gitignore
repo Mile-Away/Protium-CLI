@@ -25,3 +25,5 @@ setup.py
 version.py
 pypibuild.sh
 debug.py
+debug.json
+data.json
